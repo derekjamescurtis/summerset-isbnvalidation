@@ -1,15 +1,12 @@
 package Summerset::IsbnConverter;
+require Exporter;
+our @ISA = qw/Exporter/;
+our @EXPORT_OK = qw/convertToIsbn10 convertToIsbn13 generateIsbn10CheckDigit generateIsbn13CheckDigit validateIsbn10 validateIsbn13/;
+our %EXPORT_TAGS = (all => [qw/convertToIsbn10 convertToIsbn13 generateIsbn10CheckDigit generateIsbn13CheckDigit validateIsbn10 validateIsbn13/]);
 
 use 5.006;
 use strict;
 use warnings FATAL => 'all';
-
-
-# TODO:
-# 1 - Write unit tests
-# 2 - Document this module
-
-
 
 =head1 NAME
 
@@ -27,30 +24,43 @@ our $VERSION = '0.01';
 
 =head1 SYNOPSIS
 
-Quick summary of what the module does.
+Simple module to convert ISBN10 to ISBN13 format and vice versa.
 
-Perhaps a little code snippet.
 
     use Summerset::IsbnConverter;
 
-    my $foo = Summerset::IsbnConverter->new();
-    ...
+	my $isbn10 = '0395040892';
+	my $isbn13 = Summerset::IsbnConverter::convertToIsbn13($isbn10);
+		
+	print $isnb13; # will print -> 9780395040898
+    
 
 =head1 EXPORT
 
-A list of functions that can be exported.  You can delete this section
-if you don't export anything, such as for a purely object-oriented module.
+convertToIsbn10 
+convertToIsbn13 
+generateIsbn10CheckDigit 
+generateIsbn13CheckDigit 
+validateIsbn10 
+validateIsbn13
 
 =head1 SUBROUTINES/METHODS
 
-=head2 toIsbn10
+=head2 convertToIsbn10
 
-Requires a single ISBN13.  This ISBN must begin with the 978 prefix.
+Converts an ISBN13 format string, into ISBN10 format.
 
+Requires a single ISBN13.  This ISBN must begin with the 978 prefix.  
+Other ISBN13's are not convertable to ISBN10.  The ISBN13 may contain 
+hyphens or other formatting characters/whitespace.  The ISBN13 string may not 
+end with any whitespace.
 
+Returns a string in ISBN10 format.
+
+Returns undef on errors (eg, invalid ISBN13 provided).
 
 =cut
-sub toIsbn10 {	
+sub convertToIsbn10 {	
 	my $input = &_replaceNonDigitCharacters(shift);
 	
 	# make sure input was valid AND begins with 978 prefix 
@@ -66,17 +76,26 @@ sub toIsbn10 {
 
 =head2 toIsbn13
 
-Convert an ISBN10, to ISBN13 format.  
+Converts an ISBN10 format string, into ISBN13 format.
+
+Requires a single ISBN10.  The ISBN10 string may contain 
+hyphens or other formatting characters/whitespace.  The ISBN13 string may not 
+end with any whitespace.
+
+Returns a string in ISBN13 format.
+
+Returns undef on errors (eg, invalid ISBN10 provided).
 
 =cut
-sub toIsbn13 {
+sub convertToIsbn13 {
 	my $input = &_replaceNonDigitCharacters(shift); 
-	
+			
 	# make sure input was a valid ISBN10
 	return undef unless &validateIsbn10($input);
 	
 	# remove the checkdigit, which can be an x
-	$input =~ s/[\d|x]$//i;
+	$input =~ s/(\d|x)$//i;
+	$input = '978' . $input; # add the isbn13 '978' prefix
 	
 	# return ISBN13 with the recalculated checkdigit
 	return $input . &generateIsbn13CheckDigit($input);
@@ -104,13 +123,12 @@ sub generateIsbn10CheckDigit{
 		my $multiplier 	= 10;
 		
 		# algorithm --> http://en.wikipedia.org/wiki/International_Standard_Book_Number
-		for (my $i = 0; $i < scalar(@exploded_input); $i++){
-						
-			$sum += $exploded_input[$i] * $multiplier; 						
+		for (my $i = 0; $i < scalar(@exploded_input); $i++){				
+			$sum += $exploded_input[$i] * $multiplier;;						
 			--$multiplier;
 		}
 		
-		my $return_value = $sum % 11;
+		my $return_value = 11 - ($sum % 11);
 		
 		return $return_value == 10 ? 'X' : $return_value;		
 	}
@@ -129,7 +147,7 @@ Returns a single character check digit.  This value will be a numeric digit.
 Returns undef on invalid input.
 
 =cut
-sub generateIsbn13CheckDigit{
+sub generateIsbn13CheckDigit{	
 	my $input = shift;
 	
 	# requires a 12 digit scalar as input
@@ -143,8 +161,8 @@ sub generateIsbn13CheckDigit{
 			my $multiplier = $i % 2 == 0 ? 1 : 3;
 			$sum += $exploded_input[$i] * $multiplier; 				
 		}
-		
-		return $sum % 10;			
+		my $return_value = 10 - ($sum % 10);
+		return $return_value;			
 	}
 	else{
 		# error occured 
@@ -162,11 +180,13 @@ Returns a boolean value to indicate whether validation succeeded.
 Returns undef on invalid input.
 
 =cut
-sub validateIsbn10 {
-	my $input = &_replaceNonDigitCharacters(shift);
-		
+sub validateIsbn10 {		
+	my $input 	= &_replaceNonDigitCharacters(shift) || '';	
+	
 	# 10 digits of input -- we use $1 below, so that's why we use a strange regex
-	if ($input =~ /^[\d{9}][\d|X]$/){
+	if ($input =~ /^(\d{9})(\d|X)$/i){	
+		
+		my $check_digit = &generateIsbn10CheckDigit($1);
 		
 		# validate the check digit of input, against one we calculate
 		# we have to use string comparison here, because ISBN10 check digits can be 'X'
@@ -177,7 +197,7 @@ sub validateIsbn10 {
 			return 0;
 		}		
 	}
-	else{
+	else{					
 		return 0;
 	}
 }
@@ -193,9 +213,9 @@ Returns undef on invalid input.
 
 =cut
 sub validateIsbn13 {
-	my $input = &_replaceNonDigitCharacters(shift);
+	my $input 	= &_replaceNonDigitCharacters(shift) || '';
 			
-	if ($input =~ /^[\d{3}][\d{9}][\d]$/){
+	if ($input =~ /^(\d{3})(\d{9})(\d)$/){
 		
 		# validate the check digit of input, against one we calculate
 		if (&generateIsbn13CheckDigit("${1}${2}") == $3){
@@ -214,7 +234,7 @@ sub validateIsbn13 {
 # removes any non-digit characters from a single input.
 # does not affect 'X' at the end of an ISBN10
 sub _replaceNonDigitCharacters {
-	my $input = shift;
+	my $input = shift || '';
 	
 	# hack: I forgot about the possible 'X' at the end of isbn10
 	# we just check the input, and if it ends with an x.. we'll append it to our return value
