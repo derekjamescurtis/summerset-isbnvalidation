@@ -1,7 +1,7 @@
 package Summerset::IsbnConverter;
 require Exporter;
 our @ISA = qw/Exporter/;
-our @EXPORT = qw/convertToIsbn10 convertToIsbn13 generateIsbn10CheckDigit generateIsbn13CheckDigit validateIsbn10 validateIsbn13/;
+our @EXPORT_OK = qw/convertToIsbn10 convertToIsbn13 generateIsbn10CheckDigit generateIsbn13CheckDigit validateIsbn10 validateIsbn13/;
 our %EXPORT_TAGS = (all => [qw/convertToIsbn10 convertToIsbn13 generateIsbn10CheckDigit generateIsbn13CheckDigit validateIsbn10 validateIsbn13/]);
 
 use 5.006;
@@ -15,11 +15,11 @@ This module also contains simple methods to validate ISBN10 and ISBN13 strings.
 
 =head1 VERSION
 
-Version 1.00
+Version 0.01
 
 =cut
 
-our $VERSION = '1.00';
+our $VERSION = '0.01';
 
 
 =head1 SYNOPSIS
